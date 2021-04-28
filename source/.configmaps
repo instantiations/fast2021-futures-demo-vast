@@ -1,0 +1,63 @@
+[
+	{
+		#conditions : [
+			{
+				#condition : 'true',
+				#requiredMaps : [
+					{
+						#name : 'z.ST: Server, SST',
+						#versionName : 'V 10.0.1  [483]',
+						#ts : 3795633778
+					},
+					{
+						#name : 'z.ST: Server Smalltalk (SST) - HTTP',
+						#versionName : 'V 10.0.1  [483]',
+						#ts : 3795633778
+					},
+					{
+						#name : 'z.ST: JSON Support',
+						#versionName : 'V 10.0.1  [483]',
+						#ts : 3795633778
+					},
+					{
+						#name : 'FAST 2021 - Demo Runtime',
+						#versionName : '1.1',
+						#ts : 3797055764
+					}
+				]
+			}
+		],
+		#ts : 3797055779,
+		#comment : '',
+		#formatVersion : '1.1',
+		#applications : OrderedCollection [
+			{
+				#name : 'FAST2021DemoPackagingInstructionsApp',
+				#versionName : '1.4',
+				#ts : 3796981220
+			}
+		],
+		#name : 'FAST 2021 - Demo',
+		#versionName : '1.3'
+	},
+	{
+		#conditions : [
+			{
+				#condition : 'true',
+				#requiredMaps : [ ]
+			}
+		],
+		#ts : 3797055764,
+		#comment : '',
+		#formatVersion : '1.1',
+		#applications : OrderedCollection [
+			{
+				#name : 'FAST2021DemoApp',
+				#versionName : '1.4',
+				#ts : 3797055671
+			}
+		],
+		#name : 'FAST 2021 - Demo Runtime',
+		#versionName : '1.1'
+	}
+]
