@@ -121,24 +121,18 @@ FAST2021DemoPackagingInstructions class >> applicationNamesToPackage [
 { #category : 'Not categorized' }
 FAST2021DemoPackagingInstructions class >> buildImage [
 
-	"Builds a XD image with the VM Headless Test Runner.
-	To run the resulting headlessTestRunner.icx you could do:
-		esvio.exe -iheadlessTestRunner.icx -debug -verbose -cTestWeakSet
-		esvio.exe -iheadlessTestRunner.icx -debug -verbose -aTestVM
-		esvio.exe -iheadlessTestRunner.icx -debug -verbose -all"
-
 	| abs |
 
 	abs :=
 		(Smalltalk at: #AbsXDBuildSpecification)
-			name: 'VM Headless Test Runner'
-			mapWithPackagingInstructions: 'MMP-Headless-VM-Test-Runner-Dev'
+			name: 'FAST 2021 Futures Demo'
+			mapWithPackagingInstructions: 'FAST 2021 - Demo'
 			packagingMapVersion: nil
-			packagingInstructions: 'HeadlessTestRunnerPackagingInstructions'
-			mapsWithAppsToPackage: #('MMP-Headless-VM-Test-Runner')
-			xdFeatures: #()
-			xdFeaturesMaps: #()
-			xdEnvironment: 'WIN32s'
+			packagingInstructions: 'FAST2021DemoPackagingInstructions'
+			mapsWithAppsToPackage: #('FAST 2021 - Demo Runtime')
+			xdFeatures: #(AbtJSONSupportFeature AbtSstFeature AbtTCPIPFeature)
+			xdFeaturesMaps:  #('z.ST: Server, SST')
+			xdEnvironment: 'UNIX'
 			xdImageSubsystems: nil.
 	abs notNil ifTrue: [abs build]
 ]
@@ -185,6 +179,12 @@ FAST2021DemoPackagingInstructions class >> imageFileName [
 
 { #category : 'Not categorized' }
 FAST2021DemoPackagingInstructions class >> isKeptByDefault [
+
+	^false
+]
+
+{ #category : 'Not categorized' }
+FAST2021DemoPackagingInstructions class >> isSavedByDefault [
 
 	^false
 ]
@@ -252,5 +252,27 @@ FAST2021DemoPackagingInstructions class >> yyydumperOptions [
 	add: EpUniqueEmptyMethodDictionary;
 	add: EpAllStatistics;
 	yourself);
+	yourself)
+]
+
+{ #category : 'Not categorized' }
+FAST2021DemoPackagingInstructions class >> zzzdumperOptions [
+
+^((EpDumperOptions basicNew)
+	instVarAt: 1 put: ((Set new)
+	add: EpAllStatistics;
+	add: EpRemoveCategories;
+	add: EpCorrectManagerStructures;
+	add: EpRemoveUnusedMetaclasses;
+	add: EpCreateSnapshot;
+	add: EpMakeCatalogsResident;
+	add: EpRemoveSourcePointers;
+	add: EpOptimizeAssociations;
+	add: EpUniqueEmptyMethodDictionary;
+	yourself);
+	instVarAt: 2 put: EsRomerImageDumper;
+	instVarAt: 3 put: 'FAST2021demo.icx';
+	instVarAt: 4 put: '';
+	instVarAt: 5 put: nil;
 	yourself)
 ]

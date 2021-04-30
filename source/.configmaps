@@ -21,24 +21,24 @@
 					},
 					{
 						#name : 'FAST 2021 - Demo Runtime',
-						#versionName : '1.1',
-						#ts : 3797055764
+						#versionName : '1.2',
+						#ts : 3797225893
 					}
 				]
 			}
 		],
-		#ts : 3797055779,
+		#ts : 3797225878,
 		#comment : '',
 		#formatVersion : '1.1',
 		#applications : OrderedCollection [
 			{
 				#name : 'FAST2021DemoPackagingInstructionsApp',
-				#versionName : '1.4',
-				#ts : 3796981220
+				#versionName : '1.7',
+				#ts : 3797060126
 			}
 		],
 		#name : 'FAST 2021 - Demo',
-		#versionName : '1.3'
+		#versionName : '1.4'
 	},
 	{
 		#conditions : [
@@ -47,17 +47,17 @@
 				#requiredMaps : [ ]
 			}
 		],
-		#ts : 3797055764,
+		#ts : 3797225893,
 		#comment : '',
 		#formatVersion : '1.1',
 		#applications : OrderedCollection [
 			{
 				#name : 'FAST2021DemoApp',
-				#versionName : '1.4',
-				#ts : 3797055671
+				#versionName : '1.6',
+				#ts : 3797161499
 			}
 		],
 		#name : 'FAST 2021 - Demo Runtime',
-		#versionName : '1.1'
+		#versionName : '1.2'
 	}
 ]

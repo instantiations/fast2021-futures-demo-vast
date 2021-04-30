@@ -22,41 +22,44 @@ FAST2021Demo >> asyncProcessCovidData [
 
 time := Time millisecondClockValue.
 transcript := TranscriptTTY default.
-getLocations := SstAsyncHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations'.
+getLocations := EsFuture on: [SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations'].
 readLocations := getLocations then: [:response | ((NeoJSONReader on: response basicContents readStream) next at: 'locations')].
-completed := readLocations then: [:readLocationsData |
-	EsFuture all: (readLocationsData collect: [:locationData | | countryId countryName getLocation provinceName countryAndProvince |
-		countryId := (locationData at: 'id') asString.
-		countryName := (locationData at: 'country') asString copyWithout: $*.
-		provinceName := (locationData at: 'province') asString copyWithout: $*.
-		countryAndProvince := countryName, (provinceName isEmpty ifTrue:[ '' ] ifFalse: [' - ', provinceName]).
-		getLocation := SstAsyncHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'.
-		getLocation then: [:response | | readLatest wroteZip printToTranscript |
-			(response isSstError or: [response basicContents isEmpty]) 
-				ifTrue: [ EsFuture on: [transcript show: countryAndProvince , ': ---------------------Server Error--------------------'; cr ]]
-				ifFalse: [			
-					readLatest := EsFuture on: [ ((NeoJSONReader on: response basicContents readStream) next at: 'location') at: 'latest'].
-					wroteZip := readLatest then: [:latestData | | stream |
-						stream := ZipWriteStream on: (CfsWriteFileStream openEmpty: countryAndProvince, '.zip').
-						stream 
-							nextPutEntry: (ZipEntry named: countryAndProvince, '.txt');
-							nextPutAll: 'confirmed: '; space; nextPutAll: (latestData at: 'confirmed') asString; cr;
-							nextPutAll: 'deaths: '; space; nextPutAll: (latestData at: 'deaths') asString; cr;
-							nextPutAll: 'recovered: '; space; nextPutAll: (latestData at: 'recovered') asString; cr;
-							close
-					].
-					printToTranscript := readLatest then: [:latestData |
-							transcript show: countryAndProvince.
-							transcript show: '     confirmed: ', (latestData at: 'confirmed') asString.
-							transcript show: '     deaths: ', (latestData at: 'deaths') asString.
-							transcript show: '     recovered: ', (latestData at: 'recovered') asString.
-							transcript cr].
-					EsFuture all: (Array with: wroteZip with: printToTranscript)
-				]
-		]
-	])
+completed := readLocations then: [:readLocationsData |  | allWroteZipAndPrintToTranscriptFutures | 
+		allWroteZipAndPrintToTranscriptFutures := OrderedCollection new. 
+		readLocationsData do: [:locationData | | countryId countryName getLocation provinceName countryAndProvince wroteZipAndPrintToTranscript |
+			countryId := (locationData at: 'id') asString.
+			countryName := (locationData at: 'country') asString copyWithout: $*.
+			provinceName := (locationData at: 'province') asString copyWithout: $*.
+			countryAndProvince := countryName, (provinceName isEmpty ifTrue:[ '' ] ifFalse: [' - ', provinceName]).
+			getLocation := EsFuture on: [ SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'].
+			wroteZipAndPrintToTranscript := getLocation then: [:response | | readLatest wroteZip printToTranscript |
+				(response isSstError or: [response basicContents isEmpty]) 
+					ifTrue: [ EsFuture on: [transcript show: countryAndProvince , ': ---------------------Server Error--------------------'; cr ]]
+					ifFalse: [			
+						readLatest := EsFuture on: [ ((NeoJSONReader on: response basicContents readStream) next at: 'location') at: 'latest'].
+						wroteZip := readLatest then: [:latestData | | stream |
+							stream := ZipWriteStream on: (CfsWriteFileStream openEmpty: countryAndProvince, '.zip').
+							stream 
+								nextPutEntry: (ZipEntry named: countryAndProvince, '.txt');
+								nextPutAll: 'confirmed: '; space; nextPutAll: (latestData at: 'confirmed') asString; cr;
+								nextPutAll: 'deaths: '; space; nextPutAll: (latestData at: 'deaths') asString; cr;
+								nextPutAll: 'recovered: '; space; nextPutAll: (latestData at: 'recovered') asString; cr;
+								close
+						].
+						printToTranscript := readLatest then: [:latestData |
+								transcript show: countryAndProvince.
+								transcript show: '     confirmed: ', (latestData at: 'confirmed') asString.
+								transcript show: '     deaths: ', (latestData at: 'deaths') asString.
+								transcript show: '     recovered: ', (latestData at: 'recovered') asString.
+								transcript cr].
+						EsFuture all: (Array with: wroteZip with: printToTranscript).
+					]
+			].	
+			allWroteZipAndPrintToTranscriptFutures add: wroteZipAndPrintToTranscript.
+		].
+		EsFuture all: allWroteZipAndPrintToTranscriptFutures.
 ].
-completed then: [:e | transcript cr; show: 'Time spent: ', (Duration milliseconds: Time millisecondClockValue - time) printString; cr ] 
+completed then: [:e | transcript cr; show: 'Time spent: ', (Duration milliseconds: Time millisecondClockValue - time) printString; cr ]  
 ]
 
 { #category : 'Processing' }
@@ -96,7 +99,7 @@ time := Time millisecondClockValue.
 transcript := TranscriptTTY default.
 response := SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations'.
 readLocationsData := ((NeoJSONReader on: response basicContents readStream) next at: 'locations').
-readLocationsData collect: [:locationData | | countryId countryName provinceName rename latestData countryAndProvince |
+readLocationsData collect: [:locationData | | countryId countryName provinceName stream latestData countryAndProvince |
 	countryId := (locationData at: 'id') asString.
 	countryName := (locationData at: 'country') asString copyWithout: $*.
 	provinceName := (locationData at: 'province') asString copyWithout: $*.
@@ -106,8 +109,8 @@ readLocationsData collect: [:locationData | | countryId countryName provinceName
 			ifTrue: [ transcript show: countryAndProvince,  ': ---------------------Server Error--------------------'; cr ]
 			ifFalse: [			
 				latestData := ((NeoJSONReader on: response basicContents readStream) next at: 'location') at: 'latest'.
-				rename := ZipWriteStream on: (CfsWriteFileStream openEmpty: countryAndProvince, '.zip').
-				rename 
+				stream := ZipWriteStream on: (CfsWriteFileStream openEmpty: countryAndProvince, '.zip').
+				stream 
 					nextPutEntry: (ZipEntry named: countryAndProvince, '.txt');
 					nextPutAll: 'confirmed: '; space; nextPutAll: (latestData at: 'confirmed') asString; cr;
 					nextPutAll: 'deaths: '; space; nextPutAll: (latestData at: 'deaths') asString; cr;
