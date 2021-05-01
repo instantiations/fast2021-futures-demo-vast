@@ -71,7 +71,6 @@ FAST2021Demo >> processCovidData [
 FAST2021Demo >> servers [
 
 "
- 
  main: https://coronavirus-tracker-api.herokuapp.com
  
  US mirror: https://covid-tracker-us.herokuapp.com
