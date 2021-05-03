@@ -22,7 +22,7 @@ FAST2021Demo >> asyncProcessCovidData [
 
 time := Time millisecondClockValue.
 transcript := TranscriptTTY default.
-getLocations := EsFuture on: [SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations'].
+getLocations := EsFuture on: [SstHttpClient fetch: 'https://covid-tracker-us.herokuapp.com/v2/locations'].
 readLocations := getLocations then: [:response | ((NeoJSONReader on: response basicContents readStream) next at: 'locations')].
 completed := readLocations then: [:readLocationsData |  | allWroteZipAndPrintToTranscriptFutures | 
 		allWroteZipAndPrintToTranscriptFutures := OrderedCollection new. 
@@ -31,7 +31,7 @@ completed := readLocations then: [:readLocationsData |  | allWroteZipAndPrintToT
 			countryName := (locationData at: 'country') asString copyWithout: $*.
 			provinceName := (locationData at: 'province') asString copyWithout: $*.
 			countryAndProvince := countryName, (provinceName isEmpty ifTrue:[ '' ] ifFalse: [' - ', provinceName]).
-			getLocation := EsFuture on: [ SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'].
+			getLocation := EsFuture on: [ SstHttpClient fetch: 'https://covid-tracker-us.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'].
 			wroteZipAndPrintToTranscript := getLocation then: [:response | | readLatest wroteZip printToTranscript |
 				(response isSstError or: [response basicContents isEmpty]) 
 					ifTrue: [ EsFuture on: [transcript show: countryAndProvince , ': ---------------------Server Error--------------------'; cr ]]
@@ -96,14 +96,14 @@ FAST2021Demo >> syncProcessCovidData [
 
 time := Time millisecondClockValue.
 transcript := TranscriptTTY default.
-response := SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations'.
+response := SstHttpClient fetch: 'https://covid-tracker-us.herokuapp.com/v2/locations'.
 readLocationsData := ((NeoJSONReader on: response basicContents readStream) next at: 'locations').
 readLocationsData collect: [:locationData | | countryId countryName provinceName stream latestData countryAndProvince |
 	countryId := (locationData at: 'id') asString.
 	countryName := (locationData at: 'country') asString copyWithout: $*.
 	provinceName := (locationData at: 'province') asString copyWithout: $*.
 	countryAndProvince := countryName, (provinceName isEmpty ifTrue:[ '' ] ifFalse: [' - ', provinceName]).
-	response := SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'.
+	response := SstHttpClient fetch: 'https://covid-tracker-us.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'.
 	(response isSstError or: [response basicContents isEmpty]) 
 			ifTrue: [ transcript show: countryAndProvince,  ': ---------------------Server Error--------------------'; cr ]
 			ifFalse: [			
