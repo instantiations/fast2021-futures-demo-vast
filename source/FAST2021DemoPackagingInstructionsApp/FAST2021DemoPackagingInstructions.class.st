@@ -104,7 +104,7 @@ FAST2021DemoPackagingInstructions class >> actualIncludedSubApplicationNames [
 { #category : 'Not categorized' }
 FAST2021DemoPackagingInstructions class >> applicationLaunchCode [
 
-^'FAST2021Demo new asyncProcessCovidData'
+^'FAST2021Demo asyncProcessCovidData'
 ]
 
 { #category : 'EP-API (Modifiable)' }

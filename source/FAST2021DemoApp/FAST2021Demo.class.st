@@ -5,123 +5,161 @@ Class {
 }
 
 { #category : 'Processing' }
-FAST2021Demo >> asyncProcessCovidData [
+FAST2021Demo class >> asyncProcessCovidData [
 
-"Asynchronous Version
- Make an HTTP REST call to get all COVID-19 Location Data.
- Parse locations data response into JSON Data Structure
- For each Country in Location Data
-	Make an HTTP REST call to get all COVID-19 Country Data
-	Parse country data response into JSON Data Structure
-	Write Zip File to File Stream with country stats
-	Print country stats to Transcript
- End For
- "
+	"Asynchronous Version
+	 Make an HTTP REST call to get all COVID-19 Location Data.
+	 Parse locations data response into JSON Data Structure
+	 For each Country in Location Data
+		Make an HTTP REST call to get all COVID-19 Country Data
+		Parse country data response into JSON Data Structure
+		Write Zip File to File Stream with country stats
+		Print country stats to Transcript
+	 End For
+	 "
 
-| getLocations readLocations time completed transcript |
+	| getLocationsFuture readLocationsFuture time completedFuture transcript |
 
-time := Time millisecondClockValue.
-transcript := TranscriptTTY default.
-getLocations := EsFuture on: [SstHttpClient fetch: 'https://covid-tracker-us.herokuapp.com/v2/locations'].
-readLocations := getLocations then: [:response | ((NeoJSONReader on: response basicContents readStream) next at: 'locations')].
-completed := readLocations then: [:readLocationsData |  | allWroteZipAndPrintToTranscriptFutures | 
-		allWroteZipAndPrintToTranscriptFutures := OrderedCollection new. 
-		readLocationsData do: [:locationData | | countryId countryName getLocation provinceName countryAndProvince wroteZipAndPrintToTranscript |
-			countryId := (locationData at: 'id') asString.
-			countryName := (locationData at: 'country') asString copyWithout: $*.
-			provinceName := (locationData at: 'province') asString copyWithout: $*.
-			countryAndProvince := countryName, (provinceName isEmpty ifTrue:[ '' ] ifFalse: [' - ', provinceName]).
-			getLocation := EsFuture on: [ SstHttpClient fetch: 'https://covid-tracker-us.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'].
-			wroteZipAndPrintToTranscript := getLocation then: [:response | | readLatest wroteZip printToTranscript |
-				(response isSstError or: [response basicContents isEmpty]) 
-					ifTrue: [ EsFuture on: [transcript show: countryAndProvince , ': ---------------------Server Error--------------------'; cr ]]
-					ifFalse: [			
-						readLatest := EsFuture on: [ ((NeoJSONReader on: response basicContents readStream) next at: 'location') at: 'latest'].
-						wroteZip := readLatest then: [:latestData | | stream |
-							stream := ZipWriteStream on: (CfsWriteFileStream openEmpty: countryAndProvince, '.zip').
-							stream 
-								nextPutEntry: (ZipEntry named: countryAndProvince, '.txt');
-								nextPutAll: 'confirmed: '; space; nextPutAll: (latestData at: 'confirmed') asString; cr;
-								nextPutAll: 'deaths: '; space; nextPutAll: (latestData at: 'deaths') asString; cr;
-								nextPutAll: 'recovered: '; space; nextPutAll: (latestData at: 'recovered') asString; cr;
-								close
-						].
-						printToTranscript := readLatest then: [:latestData |
-								transcript show: countryAndProvince.
-								transcript show: '     confirmed: ', (latestData at: 'confirmed') asString.
-								transcript show: '     deaths: ', (latestData at: 'deaths') asString.
-								transcript show: '     recovered: ', (latestData at: 'recovered') asString.
-								transcript cr].
-						EsFuture all: (Array with: wroteZip with: printToTranscript).
-					]
-			].	
-			allWroteZipAndPrintToTranscriptFutures add: wroteZipAndPrintToTranscript.
-		].
-		EsFuture all: allWroteZipAndPrintToTranscriptFutures.
-].
-completed then: [:e | transcript cr; show: 'Time spent: ', (Duration milliseconds: Time millisecondClockValue - time) printString; cr ]  
+	time := Time millisecondClockValue.
+	transcript := TranscriptTTY default.
+	getLocationsFuture := EsFuture on: [SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations'].
+	readLocationsFuture := getLocationsFuture then: [:response | ((NeoJSONReader on: response basicContents readStream) next at: 'locations')].
+	completedFuture := readLocationsFuture then: [:readLocationsData |  | allLocationsWriteZipAndPrintToTranscriptFutures | 
+			allLocationsWriteZipAndPrintToTranscriptFutures := OrderedCollection new. 
+			readLocationsData do: [:locationData | | getLocationFuture writeZipAndPrintToTranscriptFuture |
+				getLocationFuture := EsFuture on: [ SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations/', (locationData at: 'id') asString, '?source=jhu&timelines=false'].
+				writeZipAndPrintToTranscriptFuture := getLocationFuture then: [:response | | readLatestFuture writeZipFuture printToTranscriptFuture |
+					(response isSstError or: [response basicContents isEmpty]) 
+						ifTrue: [ EsFuture on: [transcript show: (self countryAndProvinceFrom: locationData) , ': ---------------------Server Error--------------------'; cr ]]
+						ifFalse: [			
+							readLatestFuture := EsFuture on: [ ((NeoJSONReader on: response basicContents readStream) next at: 'location') at: 'latest'].
+							writeZipFuture := readLatestFuture then: [:latestData |
+								self writeZipWith: latestData from: locationData.
+							].
+							printToTranscriptFuture := readLatestFuture then: [:latestData |
+								self printTo: transcript with: latestData from: locationData.
+							].
+							EsFuture all: { writeZipFuture. printToTranscriptFuture. }.
+						]
+				].	
+				allLocationsWriteZipAndPrintToTranscriptFutures add: writeZipAndPrintToTranscriptFuture.
+			].
+			EsFuture all: allLocationsWriteZipAndPrintToTranscriptFutures.
+	].
+	completedFuture then: [:e | transcript cr; show: 'Time spent: ', (Duration milliseconds: Time millisecondClockValue - time) printString; cr ]  
+]
+
+{ #category : 'Processing',
+  #vaVisibility : 'private' }
+FAST2021Demo class >> countryAndProvinceFrom: locationData [
+
+	| provinceName countryName |
+
+	countryName := (locationData at: 'country') asString copyWithout: $*.
+	provinceName := (locationData at: 'province') asString copyWithout: $*.
+	^countryName , (provinceName isEmpty ifTrue: [''] ifFalse: [' - ' , provinceName])
+]
+
+{ #category : 'Processing',
+  #vaVisibility : 'private' }
+FAST2021Demo class >> printTo: aStream with: latestData from: locationData [
+
+	aStream show: (self countryAndProvinceFrom: locationData).
+	aStream show: '     confirmed: ' , (latestData at: 'confirmed') asString.
+	aStream show: '     deaths: ' , (latestData at: 'deaths') asString.
+	aStream show: '     recovered: ' , (latestData at: 'recovered') asString.
+	aStream cr
 ]
 
 { #category : 'Processing' }
-FAST2021Demo >> processCovidData [
+FAST2021Demo class >> processCovidData [
 	^ self asyncProcessCovidData
 ]
 
-{ #category : 'Processing' }
-FAST2021Demo >> servers [
+{ #category : 'Processing',
+  #vaVisibility : 'private' }
+FAST2021Demo class >> servers [
 
 "
  main: https://coronavirus-tracker-api.herokuapp.com
  
  US mirror: https://covid-tracker-us.herokuapp.com
  
+ Local docker:  http://192.168.7.140
+ 
  "
 
 ]
 
 { #category : 'Processing' }
-FAST2021Demo >> syncProcessCovidData [
+FAST2021Demo class >> syncProcessCovidData [
 
-"Synchronous Version
- Make an HTTP REST call to get all COVID-19 Location Data.
- Parse locations data response into JSON Data Structure
- For each Country in Location Data
-	Make an HTTP REST call to get all COVID-19 Country Data
-	Parse country data response into JSON Data Structure
-	Write Zip File to File Stream with country stats
-	Print country stats to Transcript
- End For
-"
-| time response readLocationsData transcript |
+	"Synchronous Version
+	 Make an HTTP REST call to get all COVID-19 Location Data.
+	 Parse locations data response into JSON Data Structure
+	 For each Country in Location Data
+		Make an HTTP REST call to get all COVID-19 Country Data
+		Parse country data response into JSON Data Structure
+		Write Zip File to File Stream with country stats
+		Print country stats to Transcript
+	 End For
+	"
 
-time := Time millisecondClockValue.
-transcript := TranscriptTTY default.
-response := SstHttpClient fetch: 'https://covid-tracker-us.herokuapp.com/v2/locations'.
-readLocationsData := ((NeoJSONReader on: response basicContents readStream) next at: 'locations').
-readLocationsData collect: [:locationData | | countryId countryName provinceName stream latestData countryAndProvince |
-	countryId := (locationData at: 'id') asString.
-	countryName := (locationData at: 'country') asString copyWithout: $*.
-	provinceName := (locationData at: 'province') asString copyWithout: $*.
-	countryAndProvince := countryName, (provinceName isEmpty ifTrue:[ '' ] ifFalse: [' - ', provinceName]).
-	response := SstHttpClient fetch: 'https://covid-tracker-us.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'.
-	(response isSstError or: [response basicContents isEmpty]) 
-			ifTrue: [ transcript show: countryAndProvince,  ': ---------------------Server Error--------------------'; cr ]
-			ifFalse: [			
-				latestData := ((NeoJSONReader on: response basicContents readStream) next at: 'location') at: 'latest'.
-				stream := ZipWriteStream on: (CfsWriteFileStream openEmpty: countryAndProvince, '.zip').
-				stream 
-					nextPutEntry: (ZipEntry named: countryAndProvince, '.txt');
-					nextPutAll: 'confirmed: '; space; nextPutAll: (latestData at: 'confirmed') asString; cr;
-					nextPutAll: 'deaths: '; space; nextPutAll: (latestData at: 'deaths') asString; cr;
-					nextPutAll: 'recovered: '; space; nextPutAll: (latestData at: 'recovered') asString; cr;
-					close.
-				transcript show: countryAndProvince.
-				transcript show: '     confirmed: ', (latestData at: 'confirmed') asString.
-				transcript show: '     deaths: ', (latestData at: 'deaths') asString.
-				transcript show: '     recovered: ', (latestData at: 'recovered') asString.
-				transcript cr
-			]	
-].
-transcript cr; show: 'Time spent: ', (Duration milliseconds: Time millisecondClockValue - time) printString; cr
-  
+	[| time response readLocationsData transcript |
+
+	time := Time millisecondClockValue.
+	transcript := TranscriptTTY default.
+	response := SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations'.
+	readLocationsData := ((NeoJSONReader on: response basicContents readStream) next at: 'locations').
+	readLocationsData do: [:locationData | | countryId countryName provinceName stream latestData countryAndProvince |
+		countryId := (locationData at: 'id') asString.
+		countryName := (locationData at: 'country') asString copyWithout: $*.
+		provinceName := (locationData at: 'province') asString copyWithout: $*.
+		countryAndProvince := countryName, (provinceName isEmpty ifTrue:[ '' ] ifFalse: [' - ', provinceName]).
+		response := SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations/' , countryId, '?source=jhu&timelines=false'.
+		(response isSstError or: [response basicContents isEmpty]) 
+				ifTrue: [ transcript show: countryAndProvince,  ': ---------------------Server Error--------------------'; cr ]
+				ifFalse: [			
+					latestData := ((NeoJSONReader on: response basicContents readStream) next at: 'location') at: 'latest'.
+					stream := ZipWriteStream on: (CfsWriteFileStream openEmpty: countryAndProvince, '.zip').
+					stream 
+						nextPutEntry: (ZipEntry named: countryAndProvince, '.txt');
+						nextPutAll: 'confirmed: '; space; nextPutAll: (latestData at: 'confirmed') asString; cr;
+						nextPutAll: 'deaths: '; space; nextPutAll: (latestData at: 'deaths') asString; cr;
+						nextPutAll: 'recovered: '; space; nextPutAll: (latestData at: 'recovered') asString; cr;
+						close.
+					transcript show: countryAndProvince.
+					transcript show: '     confirmed: ', (latestData at: 'confirmed') asString.
+					transcript show: '     deaths: ', (latestData at: 'deaths') asString.
+					transcript show: '     recovered: ', (latestData at: 'recovered') asString.
+					transcript cr
+				]	
+	].
+	transcript cr; show: 'Time spent: ', (Duration milliseconds: Time millisecondClockValue - time) printString; cr
+	]  fork
+]
+
+{ #category : 'Processing',
+  #vaVisibility : 'private' }
+FAST2021Demo class >> writeZipWith: latestData from: locationData [
+
+	| stream countryAndProvince |
+
+	countryAndProvince := self countryAndProvinceFrom: locationData.
+	stream := ZipWriteStream on: (CfsWriteFileStream openEmpty: countryAndProvince , '.zip').
+	stream
+		nextPutEntry: (ZipEntry named: countryAndProvince , '.txt');
+		nextPutAll: 'confirmed: ';
+		space;
+		nextPutAll: (latestData at: 'confirmed') asString;
+		cr;
+		nextPutAll: 'deaths: ';
+		space;
+		nextPutAll: (latestData at: 'deaths') asString;
+		cr;
+		nextPutAll: 'recovered: ';
+		space;
+		nextPutAll: (latestData at: 'recovered') asString;
+		cr;
+		close
 ]
