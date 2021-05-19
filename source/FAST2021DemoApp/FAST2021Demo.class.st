@@ -27,7 +27,10 @@ FAST2021Demo class >> asyncProcessCovidData [
 	completedFuture := readLocationsFuture then: [:readLocationsData |  | allLocationsWriteZipAndPrintToTranscriptFutures | 
 			allLocationsWriteZipAndPrintToTranscriptFutures := OrderedCollection new. 
 			readLocationsData do: [:locationData | | getLocationFuture writeZipAndPrintToTranscriptFuture |
-				getLocationFuture := EsFuture on: [ SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations/', (locationData at: 'id') asString, '?source=jhu&timelines=false'].
+				"transcript show: 'Scheduling async tasks for: ', (self countryAndProvinceFrom: locationData); cr."
+				getLocationFuture := EsFuture on: [
+					"transcript show: 'HTTP GET future  for: ', (self countryAndProvinceFrom: locationData); cr."
+					SstHttpClient fetch: 'https://coronavirus-tracker-api.herokuapp.com/v2/locations/', (locationData at: 'id') asString, '?source=jhu&timelines=false'].
 				writeZipAndPrintToTranscriptFuture := getLocationFuture then: [:response | | readLatestFuture writeZipFuture printToTranscriptFuture |
 					(response isSstError or: [response basicContents isEmpty]) 
 						ifTrue: [ EsFuture on: [transcript show: (self countryAndProvinceFrom: locationData) , ': ---------------------Server Error--------------------'; cr ]]
@@ -46,7 +49,8 @@ FAST2021Demo class >> asyncProcessCovidData [
 			].
 			EsFuture all: allLocationsWriteZipAndPrintToTranscriptFutures.
 	].
-	completedFuture then: [:e | transcript cr; show: 'Time spent: ', (Duration milliseconds: Time millisecondClockValue - time) printString; cr ]  
+	"transcript show: 'I am done scheduling async tasks!'; cr."
+	completedFuture then: [:e | transcript cr; show: 'Time spent: ', (Duration milliseconds: Time millisecondClockValue - time) printString; cr ] 
 ]
 
 { #category : 'Processing',
